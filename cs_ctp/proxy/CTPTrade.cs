@@ -97,6 +97,7 @@ namespace HaiFeng
             _t.SetOnRspSettlementInfoConfirm((DeleOnRspSettlementInfoConfirm)AddDele(new DeleOnRspSettlementInfoConfirm(CTPOnRspSettlementInfoConfirm)));
             _t.SetOnFrontDisconnected((DeleOnFrontDisconnected)AddDele(new DeleOnFrontDisconnected(CTPOnFrontDisconnected)));
             _t.SetOnRspQryInstrument((DeleOnRspQryInstrument)AddDele(new DeleOnRspQryInstrument(CTPOnRspQryInstrument)));
+            _t.SetOnRspQryClassifiedInstrument((DeleOnRspQryClassifiedInstrument)AddDele(new DeleOnRspQryClassifiedInstrument(CTPOnRspQryClassifiedInstrument)));
             _t.SetOnRspQryInvestorPosition((DeleOnRspQryInvestorPosition)AddDele(new DeleOnRspQryInvestorPosition(CTPOnRspQryInvestorPosition)));
             _t.SetOnRspQryTradingAccount((DeleOnRspQryTradingAccount)AddDele(new DeleOnRspQryTradingAccount(CTPOnRspQryTradingAccount)));
             _t.SetOnRspOrderInsert((DeleOnRspOrderInsert)AddDele(new DeleOnRspOrderInsert(CTPOnRspOrderInsert)));
@@ -174,7 +175,10 @@ namespace HaiFeng
 
         private void CTPOnRspSettlementInfoConfirm(ref CThostFtdcSettlementInfoConfirmField pSettlementInfoConfirm, ref CThostFtdcRspInfoField pRspInfo, int nRequestID, bool bIsLast)
         {
-            _t.ReqQryInstrument();
+            if (this.Broker == "9999")
+                _t.ReqQryInstrument();
+            else
+                _t.ReqQryClassifiedInstrument(TradingType: TThostFtdcTradingTypeType.THOST_FTDC_TD_TRADE, ClassType: TThostFtdcClassTypeType.THOST_FTDC_INS_ALL);
         }
 
         private void CTPOnRtnInstrumentStatus(ref CThostFtdcInstrumentStatusField pInstrumentStatus)
@@ -197,6 +201,11 @@ namespace HaiFeng
             {
                 _OnRtnExchangeStatus?.Invoke(this, new StatusEventArgs { Exchange = pInstrumentStatus.InstrumentID, Status = status });
             }
+        }
+
+        private void CTPOnRspQryClassifiedInstrument(ref CThostFtdcInstrumentField pInstrument, ref CThostFtdcRspInfoField pRspInfo, int nRequestID, bool bIsLast)
+        {
+            CTPOnRspQryInstrument(ref pInstrument,ref pRspInfo, nRequestID, bIsLast);
         }
 
         private void CTPOnRspQryInstrument(ref CThostFtdcInstrumentField pInstrument, ref CThostFtdcRspInfoField pRspInfo, int nRequestID, bool bIsLast)
@@ -260,8 +269,12 @@ namespace HaiFeng
         {
             if (!string.IsNullOrEmpty(pInvestorPosition.InstrumentID))
             {
-                var f = pInvestorPosition;
-                _listPosi.Add(f);
+                // 排队交易所大额单边时所生成的非交易合约
+                if (this.DicInstrumentField.ContainsKey(pInvestorPosition.InstrumentID))
+                {
+                    var f = pInvestorPosition;
+                    _listPosi.Add(f);
+                }
             }
 
             if (bIsLast)
@@ -513,7 +526,8 @@ namespace HaiFeng
             Exchange exc;
             if (Enum.TryParse(pTrade.ExchangeID, out exc))
                 f.ExchangeID = exc;
-            if (DicTradeField.TryAdd(f.TradeID, f))// string.Format("{0}_{1}", f.TradeID, f.Direction), f))
+            // if (DicTradeField.TryAdd(f.TradeID, f))
+            if (DicTradeField.TryAdd(string.Format("{0}_{1}", f.TradeID, f.Direction == DirectionType.Buy ? 0 : 1), f))
             {
                 f.OrderID = id; //更新成交对应的委托ID
                 of.TradeTime = pTrade.TradeTime;

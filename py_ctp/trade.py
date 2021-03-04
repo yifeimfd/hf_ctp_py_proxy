@@ -11,12 +11,13 @@ import itertools
 import time
 import os
 import platform
+from time import sleep
 
 from .enums import OrderType, InstrumentStatus, DirectType, OffsetType, HedgeType, TradeTypeType
 from .structs import InfoField, InstrumentField, OrderField, OrderStatus, PositionField, TradeField, TradingAccount, PositionDetail
 from .ctp_trade import Trade
 from .ctp_struct import CThostFtdcInputOrderActionField, CThostFtdcInputOrderField, CThostFtdcInstrumentField, CThostFtdcInstrumentStatusField, CThostFtdcInvestorPositionField, CThostFtdcOrderField, CThostFtdcRspInfoField, CThostFtdcRspUserLoginField, CThostFtdcSettlementInfoConfirmField, CThostFtdcTradingAccountField, CThostFtdcTradingNoticeInfoField, CThostFtdcQuoteField, CThostFtdcInputQuoteField, CThostFtdcInputForQuoteField, CThostFtdcInvestorPositionDetailField, CThostFtdcRspAuthenticateField
-from .ctp_enum import TThostFtdcActionFlagType, TThostFtdcContingentConditionType, TThostFtdcDirectionType, TThostFtdcOffsetFlagType, TThostFtdcForceCloseReasonType, TThostFtdcHedgeFlagType, TThostFtdcOrderPriceTypeType, TThostFtdcPosiDirectionType, TThostFtdcTimeConditionType, TThostFtdcVolumeConditionType, TThostFtdcOrderStatusType, TThostFtdcInstrumentStatusType, TThostFtdcTradeTypeType, TThostFtdcAppTypeType
+from .ctp_enum import TThostFtdcActionFlagType, TThostFtdcClassTypeType, TThostFtdcContingentConditionType, TThostFtdcDirectionType, TThostFtdcOffsetFlagType, TThostFtdcForceCloseReasonType, TThostFtdcHedgeFlagType, TThostFtdcOrderPriceTypeType, TThostFtdcPosiDirectionType, TThostFtdcTimeConditionType, TThostFtdcTradingTypeType, TThostFtdcVolumeConditionType, TThostFtdcOrderStatusType, TThostFtdcInstrumentStatusType, TThostFtdcTradeTypeType, TThostFtdcAppTypeType
 
 
 class CtpTrade():
@@ -114,8 +115,12 @@ class CtpTrade():
             bIsLast: bool):
         if not self.logined:
             time.sleep(0.5)
-            """查询合约/持仓/权益"""
-            threading.Thread(target=self._qry).start()  # 开启查询
+            if self.broker == '9999':
+                print("qry instrument")
+                self.t.ReqQryInstrument()
+            else:
+                print("qry classified instrument")
+                self.t.ReqQryClassifiedInstrument(TradingType=TThostFtdcTradingTypeType.THOST_FTDC_TD_TRADE, ClassType=TThostFtdcClassTypeType.THOST_FTDC_INS_ALL)
 
     def _qry(self):
         """查询帐号相关信息"""
@@ -128,27 +133,22 @@ class CtpTrade():
                 break
             ord_cnt = len(self.orders)
             trd_cnt = len(self.trades)
-        self.t.ReqQryInstrument()
         time.sleep(1.1)
         self.t.ReqQryInvestorPosition(self.broker, self.investor)
         time.sleep(1.1)
         self.t.ReqQryTradingAccount(self.broker, self.investor)
         time.sleep(1.1)
 
+        print('logged')
         self.logined = True
         info = InfoField()
         info.ErrorID = 0
         info.ErrorMsg = '正确'
         threading.Thread(target=self.OnUserLogin, args=(self, info)).start()
         # 调用Release后程序异常退出,但不报错误:接口断开了仍然调用了查询指令
-        while self.logined:
-            """查询持仓与权益"""
-            self.t.ReqQryInvestorPosition(self.broker, self.investor)
-            time.sleep(1.1)
-            if not self.logined:
-                return
-            self.t.ReqQryTradingAccount(self.broker, self.investor)
-            time.sleep(1.1)
+        # while self.logined:
+        """查询持仓与权益"""
+        self.t.ReqQryInvestorPosition(self.broker, self.investor)
 
     def _OnRtnInstrumentStatus(self, pInstrumentStatus: CThostFtdcInstrumentStatusField):
         if pInstrumentStatus.getInstrumentID() == '':
@@ -177,11 +177,22 @@ class CtpTrade():
         inst.MaxOrderVolume = pInstrument.getMaxLimitOrderVolume()
         inst.ProductType = pInstrument.getProductClass().name  # ProductClassType.Futures -> Futures
         self.instruments[inst.InstrumentID] = inst
+        if bIsLast:
+            sleep(1.1)
+            """查询合约/持仓/权益"""
+            print('start qry thread')
+            threading.Thread(target=self._qry).start()  # 开启查询
+
+    def _OnRspQryClassifiedInstrument(self, pInstrument: CThostFtdcInstrumentField, pRspInfo: CThostFtdcRspInfoField, nRequestID: int, bIsLast: bool):
+        """"""
+        self._OnRspQryInstrument(pInstrument, pRspInfo, nRequestID, bIsLast)
+        
 
     def _OnRspQryPosition(self, pInvestorPosition: CThostFtdcInvestorPositionField, pRspInfo: CThostFtdcRspInfoField, nRequestID: int, bIsLast: bool):
         """"""
         if pInvestorPosition.getInstrumentID() != '':  # 偶尔出现NULL的数据导致数据转换错误
-            self._posi.append(pInvestorPosition)  # Struct(**f.__dict__)) #dict -> object
+            if pInvestorPosition.getInstrumentID() in self.instruments: # 解决交易所自主合成某些不可交易的套利合约的问题如 SPC y2005&p2001
+                self._posi.append(pInvestorPosition)  # Struct(**f.__dict__)) #dict -> object
 
         if bIsLast:
             # 先排序再group才有效
@@ -219,6 +230,12 @@ class CtpTrade():
                     pf.Price = 0 if pf.Position <= 0 else (cost / (vm if vm > 0 else 1) / pf.Position)
             self._posi.clear()
 
+            """查询持仓与权益"""
+            if not self.logined:
+                return
+            time.sleep(1.1)
+            self.t.ReqQryTradingAccount(self.broker, self.investor)
+
     def _OnRspQryPositionDetail(self, pInvestorPositionDetail: CThostFtdcInvestorPositionDetailField, pRspInfo: CThostFtdcRspInfoField, nRequestID: int, bIsLast: bool):
         """持仓明细"""
         if pInvestorPositionDetail.getInstrumentID() == '':
@@ -248,6 +265,12 @@ class CtpTrade():
         self.account.PreBalance = pTradingAccount.getPreBalance() + pTradingAccount.getDeposit() + pTradingAccount.getWithdraw()
         self.account.Fund = self.account.PreBalance + pTradingAccount.getCloseProfit() + pTradingAccount.getPositionProfit() - pTradingAccount.getCommission()
         self.account.Risk = 0 if self.account.Fund == 0 else self.account.CurrMargin / self.account.Fund
+        if bIsLast:
+            """查询持仓与权益"""
+            if not self.logined:
+                return
+            time.sleep(1.1)
+            self.t.ReqQryInvestorPosition(self.broker, self.investor)
 
     def _OnRtnOrder(self, pOrder: CThostFtdcOrderField):
         """"""
@@ -422,6 +445,15 @@ class CtpTrade():
         info.ErrorMsg = pRspInfo.getErrorMsg()
         threading.Thread(target=self.OnErrRtnForQuoteInsert, args=(self, pInputForQuote, info)).start()
 
+    def _OnRspError(self, pRspInfo: CThostFtdcRspInfoField, nRequestID: int, bIsLast: bool):
+        info = InfoField()
+        info.ErrorID = pRspInfo.getErrorID()
+        info.ErrorMsg = pRspInfo.getErrorMsg()
+        threading.Thread(target=self.OnRspError, args=(self, info)).start()
+
+    def GetVersion(self):
+        return self.t.GetVersion()
+
     def ReqConnect(self, front: str):
         """连接交易前置
 
@@ -444,6 +476,7 @@ class CtpTrade():
         self.t.OnRspOrderAction = self._OnRspOrderAction
         self.t.OnRtnInstrumentStatus = self._OnRtnInstrumentStatus
         self.t.OnRspQryInstrument = self._OnRspQryInstrument
+        self.t.OnRspQryClassifiedInstrument = self._OnRspQryClassifiedInstrument
         self.t.OnRspQryTradingAccount = self._OnRspQryAccount
         self.t.OnRspQryInvestorPosition = self._OnRspQryPosition
         self.t.OnRspQryInvestorPositionDetail = self._OnRspQryPositionDetail
@@ -451,6 +484,7 @@ class CtpTrade():
         self.t.OnRtnQuote = self._OnRtnQuote
         self.t.OnErrRtnQuoteInsert = self._OnErrRtnQuote
         self.t.OnErrRtnForQuoteInsert = self._OnErrForQuoteInsert
+        self.t.OnRspError = self._OnRspError
 
         self.front_address = front
         self.t.RegCB()
@@ -622,6 +656,17 @@ class CtpTrade():
         """
         print('=== [TRADE] OnErrCancel ===\n{0}'.format(f.__dict__))
         print(info)
+
+
+    def OnRspError(self, obj, info: InfoField):
+        """
+        撤单失败
+            :param self:
+            :param obj:
+            :param f:OrderField:
+            :param info:InfoField:
+        """
+        print('=== [TRADE] OnRspError ===\n{0}'.format(info.__dict__))
 
     def OnErrOrder(self, obj, f: OrderField, info: InfoField):
         """

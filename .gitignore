@@ -95,3 +95,5 @@ dll*/
 .idea*/
 /generate/data_type.py
 /requirements.txt
+.vscode*/
+/.vs

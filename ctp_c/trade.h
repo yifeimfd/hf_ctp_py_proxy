@@ -18,21 +18,16 @@
 #include "stddef.h"
 #ifdef WIN32
 #define WINAPI      __cdecl
-#include "../ctp_20190220_se_x64/ThostFtdcTraderApi.h"
-#pragma comment(lib, "../ctp_20190220_se_x64/thosttraderapi_se.lib")
-#include "../ctp_20190220_se_x64/DataCollect.h"
-#pragma comment(lib, "../ctp_20190220_se_x64/WinDataCollect.lib")
+#include "../v6.5.1/ThostFtdcTraderApi.h"
+#pragma comment(lib, "../v6.5.1/win/thosttraderapi_se.lib")
 #else
 #define WINAPI      __stdcall
-#include "../ctp_20190220_se_x64/ThostFtdcTraderApi.h"
-#pragma comment(lib, "../ctp_20190220_se_x64/thosttraderapi_se.lib")
-#include "../ctp_20190220_se_x64/DataCollect.h"
-#pragma comment(lib, "../ctp_20190220_se_x64/WinDataCollect.lib")
+#include "../v6.5.1/ThostFtdcTraderApi.h"
+#pragma comment(lib, "../v6.5.1/win/thosttraderapi_se.lib")
 #endif
 #else
 #define WINAPI
-#include "../ctp_20190220_se_x64/ThostFtdcTraderApi.h"
-#include "../ctp_20190220_se_x64/DataCollect.h"
+#include "../v6.5.1/ThostFtdcTraderApi.h"
 #endif
 
 #include <string.h>
@@ -281,18 +276,18 @@ public:
     }
 
 	///查询最大报单数量响应
-	typedef int (WINAPI *RspQueryMaxOrderVolume)(CThostFtdcQueryMaxOrderVolumeField *pQueryMaxOrderVolume, CThostFtdcRspInfoField *pRspInfo, int nRequestID, bool bIsLast);
-	void *_RspQueryMaxOrderVolume;
-	virtual void OnRspQueryMaxOrderVolume(CThostFtdcQueryMaxOrderVolumeField *pQueryMaxOrderVolume, CThostFtdcRspInfoField *pRspInfo, int nRequestID, bool bIsLast)
+	typedef int (WINAPI *RspQryMaxOrderVolume)(CThostFtdcQryMaxOrderVolumeField *pQryMaxOrderVolume, CThostFtdcRspInfoField *pRspInfo, int nRequestID, bool bIsLast);
+	void *_RspQryMaxOrderVolume;
+	virtual void OnRspQryMaxOrderVolume(CThostFtdcQryMaxOrderVolumeField *pQryMaxOrderVolume, CThostFtdcRspInfoField *pRspInfo, int nRequestID, bool bIsLast)
     {
-        if (_RspQueryMaxOrderVolume)
+        if (_RspQryMaxOrderVolume)
         {
-            if (pQueryMaxOrderVolume)
-                ((RspQueryMaxOrderVolume)_RspQueryMaxOrderVolume)(pQueryMaxOrderVolume, repare(pRspInfo), nRequestID, bIsLast);
+            if (pQryMaxOrderVolume)
+                ((RspQryMaxOrderVolume)_RspQryMaxOrderVolume)(pQryMaxOrderVolume, repare(pRspInfo), nRequestID, bIsLast);
             else
             {
-                CThostFtdcQueryMaxOrderVolumeField f = {};
-                ((RspQueryMaxOrderVolume)_RspQueryMaxOrderVolume)(&f, repare(pRspInfo), nRequestID, bIsLast);
+                CThostFtdcQryMaxOrderVolumeField f = {};
+                ((RspQryMaxOrderVolume)_RspQryMaxOrderVolume)(&f, repare(pRspInfo), nRequestID, bIsLast);
             }
         }
     }
@@ -2146,6 +2141,40 @@ public:
             {
                 CThostFtdcChangeAccountField f = {};
                 ((RtnChangeAccountByBank)_RtnChangeAccountByBank)(&f);
+            }
+        }
+    }
+
+	///请求查询分类合约响应
+	typedef int (WINAPI *RspQryClassifiedInstrument)(CThostFtdcInstrumentField *pInstrument, CThostFtdcRspInfoField *pRspInfo, int nRequestID, bool bIsLast);
+	void *_RspQryClassifiedInstrument;
+	virtual void OnRspQryClassifiedInstrument(CThostFtdcInstrumentField *pInstrument, CThostFtdcRspInfoField *pRspInfo, int nRequestID, bool bIsLast)
+    {
+        if (_RspQryClassifiedInstrument)
+        {
+            if (pInstrument)
+                ((RspQryClassifiedInstrument)_RspQryClassifiedInstrument)(pInstrument, repare(pRspInfo), nRequestID, bIsLast);
+            else
+            {
+                CThostFtdcInstrumentField f = {};
+                ((RspQryClassifiedInstrument)_RspQryClassifiedInstrument)(&f, repare(pRspInfo), nRequestID, bIsLast);
+            }
+        }
+    }
+
+	///请求组合优惠比例响应
+	typedef int (WINAPI *RspQryCombPromotionParam)(CThostFtdcCombPromotionParamField *pCombPromotionParam, CThostFtdcRspInfoField *pRspInfo, int nRequestID, bool bIsLast);
+	void *_RspQryCombPromotionParam;
+	virtual void OnRspQryCombPromotionParam(CThostFtdcCombPromotionParamField *pCombPromotionParam, CThostFtdcRspInfoField *pRspInfo, int nRequestID, bool bIsLast)
+    {
+        if (_RspQryCombPromotionParam)
+        {
+            if (pCombPromotionParam)
+                ((RspQryCombPromotionParam)_RspQryCombPromotionParam)(pCombPromotionParam, repare(pRspInfo), nRequestID, bIsLast);
+            else
+            {
+                CThostFtdcCombPromotionParamField f = {};
+                ((RspQryCombPromotionParam)_RspQryCombPromotionParam)(&f, repare(pRspInfo), nRequestID, bIsLast);
             }
         }
     }

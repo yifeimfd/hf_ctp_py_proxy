@@ -18,21 +18,16 @@
 #include "stddef.h"
 #ifdef WIN32
 #define WINAPI      __cdecl
-#include "../ctp_20190220_se_x64/ThostFtdcMdApi.h"
-#pragma comment(lib, "../ctp_20190220_se_x64/thostmduserapi_se.lib")
-#include "../ctp_20190220_se_x64/DataCollect.h"
-#pragma comment(lib, "../ctp_20190220_se_x64/WinDataCollect.lib")
+#include "../v6.5.1/ThostFtdcMdApi.h"
+#pragma comment(lib, "../v6.5.1/win/thostmduserapi_se.lib")
 #else
 #define WINAPI      __stdcall
-#include "../ctp_20190220_se_x64/ThostFtdcMdApi.h"
-#pragma comment(lib, "../ctp_20190220_se_x64/thostmduserapi_se.lib")
-#include "../ctp_20190220_se_x64/DataCollect.h"
-#pragma comment(lib, "../ctp_20190220_se_x64/WinDataCollect.lib")
+#include "../v6.5.1/ThostFtdcMdApi.h"
+#pragma comment(lib, "../v6.5.1/win/thostmduserapi_se.lib")
 #endif
 #else
 #define WINAPI
-#include "../ctp_20190220_se_x64/ThostFtdcMdApi.h"
-#include "../ctp_20190220_se_x64/DataCollect.h"
+#include "../v6.5.1/ThostFtdcMdApi.h"
 #endif
 
 #include <string.h>
@@ -106,6 +101,23 @@ public:
             {
                 CThostFtdcUserLogoutField f = {};
                 ((RspUserLogout)_RspUserLogout)(&f, repare(pRspInfo), nRequestID, bIsLast);
+            }
+        }
+    }
+
+	///请求查询组播合约响应
+	typedef int (WINAPI *RspQryMulticastInstrument)(CThostFtdcMulticastInstrumentField *pMulticastInstrument, CThostFtdcRspInfoField *pRspInfo, int nRequestID, bool bIsLast);
+	void *_RspQryMulticastInstrument;
+	virtual void OnRspQryMulticastInstrument(CThostFtdcMulticastInstrumentField *pMulticastInstrument, CThostFtdcRspInfoField *pRspInfo, int nRequestID, bool bIsLast)
+    {
+        if (_RspQryMulticastInstrument)
+        {
+            if (pMulticastInstrument)
+                ((RspQryMulticastInstrument)_RspQryMulticastInstrument)(pMulticastInstrument, repare(pRspInfo), nRequestID, bIsLast);
+            else
+            {
+                CThostFtdcMulticastInstrumentField f = {};
+                ((RspQryMulticastInstrument)_RspQryMulticastInstrument)(&f, repare(pRspInfo), nRequestID, bIsLast);
             }
         }
     }
